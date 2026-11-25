@@ -1,6 +1,10 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { ENV } from './config/env.js';
+import apiRoutes from './routes/index.js';
+import { setupBullBoard } from './queues/board.js';
+// Import email worker so background queue processing is active
+import './queues/email.worker.js';
 
 export function createApp(): Express {
   const app = express();
@@ -13,6 +17,12 @@ export function createApp(): Express {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+  // Mount Bull-Board Dashboard for Real-Time Queue Monitoring
+  setupBullBoard(app);
+
+  // Mount API Routes
+  app.use('/api', apiRoutes);
+
   // Base Health Check
   app.get('/health', (_req: Request, res: Response) => {
     res.json({
@@ -20,6 +30,7 @@ export function createApp(): Express {
       timestamp: new Date().toISOString(),
       service: 'ReachInbox Email Job Scheduler Backend',
       environment: ENV.NODE_ENV,
+      bullBoardUrl: '/admin/queues',
     });
   });
 
