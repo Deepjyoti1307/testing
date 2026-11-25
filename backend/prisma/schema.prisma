@@ -1,0 +1,88 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum JobStatus {
+  SCHEDULED
+  PROCESSING
+  SENT
+  FAILED
+  RESCHEDULED
+  CANCELLED
+}
+
+model User {
+  id               String            @id @default(uuid())
+  email            String            @unique
+  name             String
+  avatar           String?
+  googleId         String            @unique
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  senders          SenderAccount[]
+  emailJobs        EmailJob[]
+  slackIntegration SlackIntegration?
+}
+
+model SenderAccount {
+  id          String     @id @default(uuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email       String
+  name        String
+  smtpHost    String     @default("smtp.ethereal.email")
+  smtpPort    Int        @default(587)
+  smtpUser    String
+  smtpPass    String
+  hourlyLimit Int        @default(200)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  emailJobs   EmailJob[]
+
+  @@unique([userId, email])
+}
+
+model EmailJob {
+  id               String        @id @default(uuid())
+  userId           String
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  senderId         String
+  sender           SenderAccount @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  bullJobId        String?       @unique
+  recipientEmail   String
+  subject          String
+  bodyText         String
+  bodyHtml         String?
+  status           JobStatus     @default(SCHEDULED)
+  scheduledAt      DateTime
+  sentAt           DateTime?
+  rescheduledCount Int           @default(0)
+  errorMessage     String?
+  etherealUrl      String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([userId, status])
+  @@index([scheduledAt])
+  @@index([recipientEmail])
+}
+
+model SlackIntegration {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId          String
+  teamName        String
+  channelId       String?
+  channelName     String?
+  accessToken     String
+  incomingWebhook String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
